@@ -1,0 +1,548 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#191919">
+<meta name="description" content="Create and manage merchant-issued payment receipts.">
+<title>ReceiptNG — Merchant Receipts</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html-to-image/1.11.11/html-to-image.min.js" defer></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js" defer></script>
+<style>
+:root{color-scheme:dark;--bg:#191919;--card:#292929;--field:#202020;--accent:#1ed2a0;--text:#fff;--muted:#a7a7a7;--line:#414141;--green:#22c55e;--amber:#f4bd45;--red:#ff8178}
+*{box-sizing:border-box}
+html{background:var(--bg);scroll-behavior:smooth}
+body{margin:0;padding:env(safe-area-inset-top) 0 env(safe-area-inset-bottom);background:var(--bg);color:var(--text);font-family:system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif}
+button,input,select{font:inherit}
+button{cursor:pointer}
+nav{position:sticky;top:0;z-index:10;display:flex;align-items:center;gap:7px;padding:10px max(14px,calc((100vw - 980px)/2));background:#191919;border-bottom:1px solid #303030}
+nav strong{margin-right:auto;font-size:17px;letter-spacing:.2px}
+nav button{border:0;border-radius:10px;background:transparent;color:var(--muted);padding:9px 12px;font-size:14px}
+nav button.active{background:#203a32;color:var(--accent)}
+main{max-width:980px;margin:auto;padding:16px}
+.layout{display:grid;grid-template-columns:minmax(0,1fr);gap:18px}
+.panel{min-width:0;padding:16px;background:var(--card);border-radius:18px}
+h1,h2,h3,p{margin-top:0}
+h2{font-size:17px;margin-bottom:12px}
+label{display:block;margin:12px 0 5px;color:var(--muted);font-size:12px}
+input,select{width:100%;min-width:0;padding:12px;border:1px solid #414141;border-radius:11px;background:var(--field);color:#fff;font-size:15px}
+input:focus,select:focus,button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+input[type=file]{padding:9px}
+input[type=checkbox]{width:18px;height:18px;accent-color:var(--accent);flex:none}
+.row{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.help{margin:7px 2px 0;color:var(--muted);font-size:11px;line-height:1.5}
+.confirm{display:flex;gap:10px;align-items:flex-start;margin-top:14px;padding:12px;border:1px solid #3d574d;border-radius:12px;background:#1d3029;color:#e9fff6;font-size:12px;line-height:1.5}
+.confirm label{margin:0;color:inherit;font-size:12px}
+.error{min-height:0;margin-top:3px;color:var(--red);font-size:11px}
+.buttons{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px;margin-top:16px}
+.btn{border:0;border-radius:999px;padding:12px 10px;background:#17402f;color:var(--accent);font-size:13px;font-weight:650}
+.btn.primary{background:var(--accent);color:#09251d}
+.btn.wide{grid-column:1/-1}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+.preview-wrap{display:flex;justify-content:center;min-width:0}
+#receipt{position:relative;width:min(100%,380px);padding:18px 12px 14px;background:var(--bg);overflow:hidden;font-size:13px}
+.receipt-logo{position:relative;z-index:2;display:flex;align-items:center;justify-content:center;width:66px;height:66px;margin:0 auto -31px;border:4px solid var(--bg);border-radius:50%;background:#fff;color:#12352a;font-size:23px;font-weight:800;overflow:hidden}
+.receipt-logo img{width:100%;height:100%;object-fit:cover}
+.receipt-card{padding:16px;background:var(--card);border-radius:19px}
+.receipt-top{padding-top:42px;text-align:center}
+.business-title{font-size:14px;overflow-wrap:anywhere;color:#eee}
+.amount{margin:9px 0 7px;font-size:clamp(26px,8vw,33px);font-weight:800;letter-spacing:-.7px;overflow-wrap:anywhere}
+.status{display:inline-flex;align-items:center;gap:7px;font-size:13px;font-weight:700}
+.status svg{width:19px;height:19px;flex:none}
+.receipt-section{margin-top:12px}
+.receipt-section h3{margin:0 0 10px;font-size:14px}
+.detail-row{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;padding:7px 0}
+.detail-key{max-width:43%;color:var(--muted);flex:none}
+.detail-value{min-width:0;text-align:right;font-weight:650;overflow-wrap:anywhere}
+.copyline{display:inline-flex;align-items:center;justify-content:flex-end;gap:6px}
+.copyline button{border:0;background:none;color:var(--muted);padding:0 2px}
+.dash{margin:10px 0;border-top:1px dashed #5a5a5a}
+.action-line{display:flex;align-items:center;gap:7px;color:var(--accent);font-weight:650}
+.disclaimer{margin:10px 5px 0;text-align:center;color:#929292;font-size:10px;line-height:1.5}
+.share{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;margin-top:14px;padding:14px;border:0;border-radius:999px;background:var(--accent);color:#09251d;font-size:15px;font-weight:750}
+.history-tools{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.history-tools input{grid-column:1/-1}
+.history-item{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:9px;padding:12px;border-radius:13px;background:#202020}
+.history-main{min-width:0}
+.history-main strong{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:13px}
+.history-main small{display:block;margin-top:4px;color:var(--muted);font-size:10px}
+.history-actions{display:flex;gap:6px;flex:none}
+.history-actions button{border:0;border-radius:9px;padding:8px 10px;background:#17402f;color:var(--accent);font-size:11px}
+.history-actions .delete{background:#432323;color:#ffaaa3}
+.empty{padding:18px 5px;color:var(--muted);font-size:13px;text-align:center}
+#toast{position:fixed;z-index:30;left:50%;bottom:calc(20px + env(safe-area-inset-bottom));transform:translateX(-50%);max-width:90vw;padding:10px 16px;border-radius:999px;background:#fff;color:#111;font-size:12px;opacity:0;pointer-events:none;transition:opacity .2s}
+#toast.show{opacity:1}
+.hidden{display:none!important}
+@media(min-width:820px){.layout{grid-template-columns:minmax(0,1fr) 400px;align-items:start}.preview-column{position:sticky;top:72px}}
+@media(max-width:390px){main{padding:10px}.panel{padding:13px}.row{gap:7px}.btn{font-size:12px;padding:12px 7px}.history-item{align-items:flex-start}.history-actions button{padding:7px}}
+@media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}*{transition:none!important}}
+</style>
+</head>
+<body>
+<nav aria-label="Main navigation">
+  <strong>ReceiptNG</strong>
+  <button id="tab-generator" class="active" type="button">Generator</button>
+  <button id="tab-history" type="button">Receipts</button>
+</nav>
+
+<main>
+<section id="page-generator" class="layout">
+  <div class="panel">
+    <h2 id="form-heading">Create merchant receipt</h2>
+    <p class="help">Use this for payments your business has actually received. ReceiptNG does not connect to or verify bank transactions.</p>
+
+    <label for="business">Business name *</label>
+    <input id="business" maxlength="70" autocomplete="organization" placeholder="e.g. Ade Fashion Store">
+    <div class="error" id="err-business"></div>
+
+    <label for="logo-file">Business logo (optional)</label>
+    <input id="logo-file" type="file" accept="image/png,image/jpeg,image/webp">
+    <p class="help">Choose a PNG, JPG or WebP image. It will be resized before being stored on this device.</p>
+
+    <label for="customer">Customer / payer name *</label>
+    <input id="customer" maxlength="70" autocomplete="name" placeholder="Customer name">
+    <div class="error" id="err-customer"></div>
+
+    <label for="description">Items or description</label>
+    <input id="description" maxlength="100" placeholder="e.g. Two shirts">
+
+    <div class="row">
+      <div>
+        <label for="amount">Amount received (₦) *</label>
+        <input id="amount" inputmode="decimal" autocomplete="off" placeholder="10000">
+        <div class="error" id="err-amount"></div>
+      </div>
+      <div>
+        <label for="status">Receipt status</label>
+        <select id="status">
+          <option value="Pending confirmation">Pending confirmation</option>
+          <option value="Payment received">Payment received</option>
+          <option value="Refunded">Refunded</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="confirm">
+      <input id="payment-confirmed" type="checkbox">
+      <label for="payment-confirmed">I confirm that I have checked my own account or records and the payment has actually been received. Only tick this when it is true.</label>
+    </div>
+    <p class="help">The “Payment received” status cannot be selected unless this confirmation is checked. This is a merchant declaration, not automatic bank verification.</p>
+
+    <div class="row">
+      <div>
+        <label for="method">Payment method</label>
+        <select id="method"><option>Bank transfer</option><option>Cash</option><option>POS</option><option>Card</option><option>Mobile wallet</option><option>Other</option></select>
+      </div>
+      <div>
+        <label for="category">Category</label>
+        <select id="category"><option>Sales</option><option>Services</option><option>Bills &amp; Utilities</option><option>Rent</option><option>Deposit</option><option>Other</option></select>
+      </div>
+    </div>
+
+    <div class="row">
+      <div><label for="payment-date">Payment date *</label><input id="payment-date" type="date"></div>
+      <div><label for="payment-time">Payment time *</label><input id="payment-time" type="time"></div>
+    </div>
+    <div class="error" id="err-date"></div>
+
+    <label for="reference">Payment reference / merchant note (optional)</label>
+    <input id="reference" maxlength="80" placeholder="Enter a real reference supplied to you">
+    <p class="help">Do not invent a bank session ID or transaction reference. Leave this blank if you do not have one.</p>
+
+    <div class="buttons">
+      <button id="save-btn" class="btn primary" type="button">Save receipt</button>
+      <button id="new-btn" class="btn" type="button">New receipt</button>
+      <button id="png-btn" class="btn" type="button">Download PNG</button>
+      <button id="pdf-btn" class="btn" type="button">Download PDF</button>
+    </div>
+  </div>
+
+  <div class="preview-column">
+    <div class="preview-wrap">
+      <article id="receipt" aria-label="Receipt preview">
+        <div class="receipt-logo" id="preview-logo">R</div>
+        <div class="receipt-card receipt-top">
+          <div class="business-title" id="preview-title">Payment to Your Business</div>
+          <div class="amount" id="preview-amount">₦0.00</div>
+          <div class="status" id="preview-status"></div>
+        </div>
+        <div class="receipt-card receipt-section">
+          <h3>Receipt Details</h3>
+          <div class="detail-row"><span class="detail-key">Received from</span><span class="detail-value" id="preview-customer">—</span></div>
+          <div class="detail-row" id="description-row"><span class="detail-key">Items</span><span class="detail-value" id="preview-description"></span></div>
+          <div class="detail-row"><span class="detail-key">Payment method</span><span class="detail-value" id="preview-method">Bank transfer</span></div>
+          <div class="detail-row" id="reference-row"><span class="detail-key">Payment reference</span><span class="detail-value" id="preview-reference"></span></div>
+          <div class="detail-row"><span class="detail-key">Receipt number</span><span class="detail-value"><span class="copyline"><span id="preview-number"></span><button id="copy-number" type="button" aria-label="Copy receipt number" data-export-ignore>⧉</button></span></span></div>
+          <div class="detail-row"><span class="detail-key">Date &amp; time</span><span class="detail-value" id="preview-date"></span></div>
+        </div>
+        <div class="receipt-card receipt-section">
+          <h3>More Details</h3>
+          <div class="detail-row"><span class="detail-key">Category</span><span class="detail-value" id="preview-category">Sales</span></div>
+          <div class="dash"></div>
+          <div class="action-line"><span aria-hidden="true">✓</span><span id="preview-note">Awaiting payment confirmation</span></div>
+        </div>
+        <button id="share-btn" class="share" type="button" data-export-ignore>↗ &nbsp; Share Receipt</button>
+        <div class="disclaimer">Issued by the merchant using ReceiptNG.<br>This is not a bank or payment-provider transaction confirmation.</div>
+      </article>
+    </div>
+  </div>
+</section>
+
+<section id="page-history" class="hidden">
+  <div class="panel">
+    <h2>Saved receipts</h2>
+    <div class="history-tools">
+      <input id="search" type="search" placeholder="Search business, customer or receipt number">
+      <select id="filter-category"><option value="">All categories</option></select>
+      <select id="filter-status"><option value="">All statuses</option><option>Pending confirmation</option><option>Payment received</option><option>Refunded</option></select>
+    </div>
+    <div id="history-list"></div>
+  </div>
+</section>
+</main>
+<div id="toast" role="status" aria-live="polite"></div>
+
+<script>
+(() => {
+'use strict';
+const $ = id => document.getElementById(id);
+const STORAGE_KEY = 'receiptng_merchant_receipts_v2';
+const fields = ['business','customer','description','amount','status','method','category','payment-date','payment-time','reference'];
+let logoData = '';
+let receiptNumber = makeReceiptNumber();
+let editing = false;
+let toastTimer;
+
+function makeReceiptNumber() {
+  const d = new Date();
+  const date = [d.getFullYear(),String(d.getMonth()+1).padStart(2,'0'),String(d.getDate()).padStart(2,'0')].join('');
+  const random = (window.crypto && crypto.getRandomValues)
+    ? Array.from(crypto.getRandomValues(new Uint8Array(4)), b => b.toString(16).padStart(2,'0')).join('').toUpperCase()
+    : Math.random().toString(36).slice(2,10).toUpperCase();
+  return `RNG-${date}-${random}`;
+}
+function showToast(message) {
+  const el = $('toast');
+  el.textContent = message;
+  el.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => el.classList.remove('show'), 2200);
+}
+function money(value) {
+  const n = Number(String(value || '').replace(/,/g,''));
+  if (!Number.isFinite(n)) return '₦0.00';
+  return '₦' + n.toLocaleString('en-NG',{minimumFractionDigits:2,maximumFractionDigits:2});
+}
+function dateLabel(date,time) {
+  if (!date) return '—';
+  const d = new Date(`${date}T${time || '00:00'}`);
+  if (Number.isNaN(d.getTime())) return `${date} ${time || ''}`.trim();
+  return d.toLocaleString('en-NG',{day:'numeric',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'});
+}
+function getData() {
+  const record = {receiptNumber,logoData,updatedAt:Date.now()};
+  fields.forEach(id => record[id] = $(id).value.trim());
+  record.confirmedByMerchant = $('payment-confirmed').checked;
+  return record;
+}
+function setText(id,value) { $(id).textContent = value || ''; }
+function statusIcon(status) {
+  const color = status === 'Payment received' ? '#22c55e' : status === 'Refunded' ? '#ff8178' : '#f4bd45';
+  const mark = status === 'Payment received' ? 'M5 12l4 4L19 6' : status === 'Refunded' ? 'M6 6l12 12M18 6L6 18' : 'M12 6v6l4 2';
+  return `<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10" fill="${color}"/><path d="${mark}" stroke="#111" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+}
+function render() {
+  const d = getData();
+  setText('preview-title', `Payment to ${d.business || 'Your Business'}`);
+  setText('preview-amount', money(d.amount));
+  $('preview-status').innerHTML = statusIcon(d.status);
+  const statusText = document.createElement('span');
+  statusText.textContent = d.status;
+  $('preview-status').appendChild(statusText);
+  $('preview-status').style.color = d.status === 'Payment received' ? '#22c55e' : d.status === 'Refunded' ? '#ff8178' : '#f4bd45';
+  setText('preview-customer',d.customer || '—');
+  setText('preview-description',d.description);
+  $('description-row').classList.toggle('hidden',!d.description);
+  setText('preview-method',d.method);
+  setText('preview-reference',d.reference);
+  $('reference-row').classList.toggle('hidden',!d.reference);
+  setText('preview-number',receiptNumber);
+  setText('preview-date',dateLabel(d['payment-date'],d['payment-time']));
+  setText('preview-category',d.category);
+  setText('preview-note',d.status === 'Payment received' ? 'Marked received by merchant' : d.status === 'Refunded' ? 'Refund recorded by merchant' : 'Awaiting payment confirmation');
+  const logo = $('preview-logo');
+  logo.replaceChildren();
+  if (logoData) {
+    const img = new Image();
+    img.alt = 'Business logo';
+    img.src = logoData;
+    logo.appendChild(img);
+  } else {
+    logo.textContent = (d.business || 'R').trim().charAt(0).toUpperCase() || 'R';
+  }
+}
+function validate() {
+  let valid = true;
+  const err = (id,message) => { $('err-'+id).textContent = message; if (message) valid = false; };
+  err('business',$('business').value.trim() ? '' : 'Enter your business name.');
+  err('customer',$('customer').value.trim() ? '' : 'Enter the customer or payer name.');
+  const amountText = $('amount').value.trim().replace(/,/g,'');
+  const amount = Number(amountText);
+  err('amount',amountText && Number.isFinite(amount) && amount > 0 ? '' : 'Enter a valid amount greater than zero.');
+  err('date',$('payment-date').value && $('payment-time').value ? '' : 'Choose the payment date and time.');
+  if ($('status').value === 'Payment received' && !$('payment-confirmed').checked) {
+    showToast('Confirm that payment was actually received first.');
+    valid = false;
+  }
+  return valid;
+}
+function setStatusOptions() {
+  const paid = $('status').querySelector('option[value="Payment received"]');
+  paid.disabled = !$('payment-confirmed').checked;
+  if (paid.disabled && $('status').value === 'Payment received') $('status').value = 'Pending confirmation';
+}
+function setCurrentDateTime() {
+  const now = new Date();
+  const pad = n => String(n).padStart(2,'0');
+  $('payment-date').value = `${now.getFullYear()}-${pad(now.getMonth()+1)}-${pad(now.getDate())}`;
+  $('payment-time').value = `${pad(now.getHours())}:${pad(now.getMinutes())}`;
+}
+function clearErrors() {
+  document.querySelectorAll('.error').forEach(el => el.textContent = '');
+}
+function newReceipt() {
+  fields.forEach(id => { if ($(id).tagName === 'SELECT') $(id).selectedIndex = 0; else $(id).value = ''; });
+  $('payment-confirmed').checked = false;
+  $('logo-file').value = '';
+  logoData = '';
+  receiptNumber = makeReceiptNumber();
+  editing = false;
+  $('form-heading').textContent = 'Create merchant receipt';
+  $('save-btn').textContent = 'Save receipt';
+  setCurrentDateTime();
+  setStatusOptions();
+  clearErrors();
+  render();
+}
+function readReceipts() {
+  try {
+    const value = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
+    return Array.isArray(value) ? value : [];
+  } catch (_) { return []; }
+}
+function writeReceipts(records) {
+  try {
+    localStorage.setItem(STORAGE_KEY,JSON.stringify(records));
+    return true;
+  } catch (_) {
+    showToast('Device storage is full. Remove old receipts or use a smaller logo.');
+    return false;
+  }
+}
+function saveReceipt() {
+  if (!validate()) return;
+  const record = getData();
+  const all = readReceipts();
+  const index = all.findIndex(item => item.receiptNumber === receiptNumber);
+  if (index >= 0) all[index] = record;
+  else all.unshift(record);
+  if (writeReceipts(all)) {
+    editing = true;
+    $('form-heading').textContent = 'Edit merchant receipt';
+    $('save-btn').textContent = 'Update receipt';
+    showToast(index >= 0 ? 'Receipt updated on this device.' : 'Receipt saved on this device.');
+  }
+}
+function safeImageData(file) {
+  return new Promise((resolve,reject) => {
+    if (!file || !['image/png','image/jpeg','image/webp'].includes(file.type)) return reject(new Error('Choose a PNG, JPG or WebP image.'));
+    if (file.size > 5 * 1024 * 1024) return reject(new Error('Logo must be 5 MB or smaller.'));
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error('Could not read the selected image.'));
+    reader.onload = () => {
+      const image = new Image();
+      image.onerror = () => reject(new Error('That image could not be opened.'));
+      image.onload = () => {
+        const max = 320;
+        const scale = Math.min(1,max / Math.max(image.naturalWidth,image.naturalHeight));
+        const canvas = document.createElement('canvas');
+        canvas.width = Math.max(1,Math.round(image.naturalWidth * scale));
+        canvas.height = Math.max(1,Math.round(image.naturalHeight * scale));
+        const ctx = canvas.getContext('2d');
+        if (!ctx) return reject(new Error('Image processing is unavailable.'));
+        ctx.drawImage(image,0,0,canvas.width,canvas.height);
+        resolve(canvas.toDataURL('image/png'));
+      };
+      image.src = reader.result;
+    };
+    reader.readAsDataURL(file);
+  });
+}
+function fileName(extension) { return `ReceiptNG-${receiptNumber}.${extension}`; }
+function downloadUrl(url,name) {
+  const a = document.createElement('a');
+  a.href = url; a.download = name;
+  document.body.appendChild(a); a.click(); a.remove();
+}
+async function receiptPng() {
+  if (!window.htmlToImage) throw new Error('Receipt image library did not load. Check your internet connection and refresh.');
+  return window.htmlToImage.toPng($('receipt'),{
+    pixelRatio:3,cacheBust:true,backgroundColor:'#191919',
+    filter:node => !(node.dataset && node.dataset.exportIgnore !== undefined)
+  });
+}
+async function downloadPng() {
+  if (!validate()) return;
+  try { downloadUrl(await receiptPng(),fileName('png')); showToast('Receipt PNG downloaded.'); }
+  catch (error) { showToast(error.message || 'Could not create PNG.'); }
+}
+async function downloadPdf() {
+  if (!validate()) return;
+  try {
+    if (!window.jspdf) throw new Error('PDF library did not load. Check your internet connection and refresh.');
+    const dataUrl = await receiptPng();
+    const {jsPDF} = window.jspdf;
+    const image = new Image();
+    image.src = dataUrl;
+    await image.decode();
+    const width = 380;
+    const height = Math.round(width * image.height / image.width);
+    const pdf = new jsPDF({orientation:'portrait',unit:'px',format:[width,height]});
+    pdf.addImage(dataUrl,'PNG',0,0,width,height);
+    pdf.save(fileName('pdf'));
+    showToast('Receipt PDF downloaded.');
+  } catch (error) { showToast(error.message || 'Could not create PDF.'); }
+}
+async function shareReceipt() {
+  if (!validate()) return;
+  try {
+    const dataUrl = await receiptPng();
+    const blob = await (await fetch(dataUrl)).blob();
+    const file = new File([blob],fileName('png'),{type:'image/png'});
+    if (navigator.canShare && navigator.canShare({files:[file]}) && navigator.share) {
+      await navigator.share({files:[file],title:'Merchant receipt'});
+    } else {
+      downloadUrl(dataUrl,fileName('png'));
+      showToast('File sharing is unavailable here. PNG downloaded instead.');
+    }
+  } catch (error) {
+    if (error.name !== 'AbortError') showToast(error.message || 'Could not share receipt.');
+  }
+}
+async function copyText(value,label) {
+  try {
+    if (navigator.clipboard && window.isSecureContext) await navigator.clipboard.writeText(value);
+    else {
+      const area = document.createElement('textarea');
+      area.value = value; area.style.position = 'fixed'; area.style.opacity = '0';
+      document.body.appendChild(area); area.select();
+      const ok = document.execCommand('copy'); area.remove();
+      if (!ok) throw new Error('Copy failed');
+    }
+    showToast(`${label} copied.`);
+  } catch (_) { showToast('Could not copy. Please select the text manually.'); }
+}
+function openReceipt(record) {
+  receiptNumber = record.receiptNumber;
+  logoData = record.logoData || '';
+  fields.forEach(id => $(id).value = record[id] || '');
+  $('payment-confirmed').checked = Boolean(record.confirmedByMerchant);
+  $('logo-file').value = '';
+  editing = true;
+  $('form-heading').textContent = 'Edit merchant receipt';
+  $('save-btn').textContent = 'Update receipt';
+  setStatusOptions();
+  clearErrors();
+  render();
+  showPage('generator');
+  window.scrollTo({top:0,behavior:'smooth'});
+}
+function renderHistory() {
+  const records = readReceipts();
+  const query = $('search').value.trim().toLowerCase();
+  const category = $('filter-category').value;
+  const status = $('filter-status').value;
+  const categories = [...new Set(records.map(r => r.category).filter(Boolean))].sort();
+  const select = $('filter-category');
+  const selected = category;
+  select.replaceChildren(new Option('All categories',''));
+  categories.forEach(cat => select.add(new Option(cat,cat)));
+  select.value = selected;
+  const filtered = records.filter(r => {
+    const haystack = [r.business,r.customer,r.receiptNumber,r.description].join(' ').toLowerCase();
+    return (!query || haystack.includes(query)) && (!category || r.category === category) && (!status || r.status === status);
+  });
+  const list = $('history-list');
+  list.replaceChildren();
+  if (!filtered.length) {
+    const empty = document.createElement('div');
+    empty.className = 'empty';
+    empty.textContent = records.length ? 'No receipts match this search.' : 'No saved receipts yet. Create and save a receipt first.';
+    list.appendChild(empty);
+    return;
+  }
+  filtered.forEach(record => {
+    const item = document.createElement('div'); item.className = 'history-item';
+    const main = document.createElement('div'); main.className = 'history-main';
+    const title = document.createElement('strong');
+    title.textContent = `${record.customer || 'Customer'} · ${money(record.amount)}`;
+    const meta = document.createElement('small');
+    meta.textContent = `${record.receiptNumber} · ${record.status} · ${record.business || ''}`;
+    main.append(title,meta);
+    const actions = document.createElement('div'); actions.className = 'history-actions';
+    const open = document.createElement('button'); open.type = 'button'; open.textContent = 'Open';
+    open.addEventListener('click',() => openReceipt(record));
+    const del = document.createElement('button'); del.type = 'button'; del.textContent = 'Delete'; del.className = 'delete';
+    del.addEventListener('click',() => {
+      if (!confirm('Delete this saved receipt from this device?')) return;
+      writeReceipts(readReceipts().filter(r => r.receiptNumber !== record.receiptNumber));
+      renderHistory(); showToast('Receipt deleted from this device.');
+    });
+    actions.append(open,del); item.append(main,actions); list.appendChild(item);
+  });
+}
+function showPage(page) {
+  const history = page === 'history';
+  $('page-generator').classList.toggle('hidden',history);
+  $('page-history').classList.toggle('hidden',!history);
+  $('tab-generator').classList.toggle('active',!history);
+  $('tab-history').classList.toggle('active',history);
+  if (history) renderHistory();
+}
+fields.forEach(id => {
+  $(id).addEventListener('input',render);
+  $(id).addEventListener('change',render);
+});
+$('payment-confirmed').addEventListener('change',() => {
+  setStatusOptions();
+  render();
+});
+$('status').addEventListener('change',() => {
+  if ($('status').value === 'Payment received' && !$('payment-confirmed').checked) {
+    $('status').value = 'Pending confirmation';
+    showToast('Tick the payment confirmation first.');
+  }
+  render();
+});
+$('logo-file').addEventListener('change',async event => {
+  const file = event.target.files && event.target.files[0];
+  if (!file) return;
+  try { logoData = await safeImageData(file); render(); showToast('Business logo added.'); }
+  catch (error) { event.target.value = ''; showToast(error.message); }
+});
+$('save-btn').addEventListener('click',saveReceipt);
+$('new-btn').addEventListener('click',newReceipt);
+$('png-btn').addEventListener('click',downloadPng);
+$('pdf-btn').addEventListener('click',downloadPdf);
+$('share-btn').addEventListener('click',shareReceipt);
+$('copy-number').addEventListener('click',() => copyText(receiptNumber,'Receipt number'));
+$('tab-generator').addEventListener('click',() => showPage('generator'));
+$('tab-history').addEventListener('click',() => showPage('history'));
+['search','filter-category','filter-status'].forEach(id => $(id).addEventListener('input',renderHistory));
+['search','filter-category','filter-status'].forEach(id => $(id).addEventListener('change',renderHistory));
+
+newReceipt();
+})();
+</script>
+</body>
+</html>
